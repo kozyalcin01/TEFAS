@@ -1,13 +1,16 @@
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { Screen } from '@/components/shared/Screen';
 import { Card } from '@/components/shared/Card';
 import { Badge } from '@/components/shared/Badge';
 import { usePortfoyDegeri } from '@/hooks/usePortfolyo';
+import { islemService } from '@/services/islemService';
 import { colors, spacing, typography, radius } from '@/theme';
 import { formatTL, formatPercent, formatAdet } from '@/utils/format';
 
 export default function HomeScreen() {
+  const queryClient = useQueryClient();
   const {
     pozisyonlar,
     toplamMevcutTL,
@@ -17,6 +20,17 @@ export default function HomeScreen() {
     gunlukDegisimTL,
     isLoading,
   } = usePortfoyDegeri();
+
+  const handleStopajToggle = async (fonKodu: string, mevcutMuaf: boolean) => {
+    const yeniDurum = await islemService.stopajMuafToggle(fonKodu);
+    await queryClient.invalidateQueries({ queryKey: ['stopaj-muaf-listesi'] });
+    Alert.alert(
+      'Stopaj Muafiyeti',
+      yeniDurum
+        ? `${fonKodu} stopajdan muaf olarak işaretlendi.`
+        : `${fonKodu} için stopaj hesabı aktif edildi.`
+    );
+  };
 
   const isPositive = toplamGetiriTL >= 0;
   const gunlukPositive = gunlukDegisimTL >= 0;
@@ -68,6 +82,7 @@ export default function HomeScreen() {
                 <Card
                   key={poz.fon_kodu}
                   onPress={() => router.push(`/fund/${poz.fon_kodu}`)}
+                  onLongPress={() => handleStopajToggle(poz.fon_kodu, poz.stopajMuaf ?? false)}
                   style={styles.fonKarti}
                 >
                   <View style={styles.fonSatir1}>
@@ -96,12 +111,17 @@ export default function HomeScreen() {
                   {poz.para_birimi !== 'TRY' && (
                     <Text style={styles.pbEtiket}>{poz.para_birimi} cinsinden fon</Text>
                   )}
-                  {poz.stopajTL != null && poz.stopajTL > 0 && (
+                  {poz.stopajMuaf ? (
                     <View style={styles.fonStopajSatir}>
-                      <Text style={styles.fonStopajEtiket}>Stopaj</Text>
+                      <Text style={styles.fonStopajEtiket}>Stopaj muaf ✓</Text>
+                      <Text style={[styles.fonStopajTutar, { color: colors.positive }]}>%0</Text>
+                    </View>
+                  ) : poz.stopajTL != null && poz.stopajTL > 0 ? (
+                    <View style={styles.fonStopajSatir}>
+                      <Text style={styles.fonStopajEtiket}>Stopaj (%10)</Text>
                       <Text style={styles.fonStopajTutar}>−{formatTL(poz.stopajTL)}</Text>
                     </View>
-                  )}
+                  ) : null}
                 </Card>
               );
             })}

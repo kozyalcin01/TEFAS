@@ -11,8 +11,17 @@ export function useAcikPozisyonlar() {
   });
 }
 
+export function useStopajMuafListesi() {
+  return useQuery({
+    queryKey: ['stopaj-muaf-listesi'],
+    queryFn: () => islemService.stopajMuafListesi(),
+    staleTime: Infinity,
+  });
+}
+
 export function usePortfoyDegeri() {
   const { data: pozisyonlar = [] } = useAcikPozisyonlar();
+  const { data: muafListesi = [] } = useStopajMuafListesi();
 
   const fiyatSorguları = useQueries({
     queries: pozisyonlar.map((poz) => ({
@@ -42,8 +51,9 @@ export function usePortfoyDegeri() {
     const mevcutDegerTL2 = poz.toplam_adet * mevcutFiyat;
     const getiriTL = mevcutDegerTL2 - poz.toplam_maliyet_tl;
     const getiriYuzde = poz.toplam_maliyet_tl > 0 ? getiriTL / poz.toplam_maliyet_tl : 0;
-    const stopajTL = stopajHesapla(poz.toplam_maliyet_tl, mevcutDegerTL2);
-    return { ...poz, mevcutDegerTL: mevcutDegerTL2, getiriTL, getiriYuzde, stopajTL };
+    const muaf = muafListesi.includes(poz.fon_kodu.toUpperCase());
+    const stopajTL = muaf ? 0 : stopajHesapla(poz.toplam_maliyet_tl, mevcutDegerTL2);
+    return { ...poz, mevcutDegerTL: mevcutDegerTL2, getiriTL, getiriYuzde, stopajTL, stopajMuaf: muaf };
   });
 
   const toplamMevcutTL = pozisyonlarHesapli.reduce((s, p) => s + (p.mevcutDegerTL ?? 0), 0);

@@ -147,6 +147,33 @@ export const islemService = {
     await db.runAsync('DELETE FROM islemler WHERE id = ?', [id]);
   },
 
+  async stopajMuafMi(fonKodu: string): Promise<boolean> {
+    const db = await getDb();
+    const row = await db.getFirstAsync<{ fon_kodu: string }>(
+      `SELECT fon_kodu FROM stopaj_muaf_fonlar WHERE fon_kodu = ?`,
+      [fonKodu.toUpperCase()]
+    );
+    return row != null;
+  },
+
+  async stopajMuafToggle(fonKodu: string): Promise<boolean> {
+    const db = await getDb();
+    const muaf = await this.stopajMuafMi(fonKodu);
+    if (muaf) {
+      await db.runAsync(`DELETE FROM stopaj_muaf_fonlar WHERE fon_kodu = ?`, [fonKodu.toUpperCase()]);
+      return false;
+    } else {
+      await db.runAsync(`INSERT OR IGNORE INTO stopaj_muaf_fonlar (fon_kodu) VALUES (?)`, [fonKodu.toUpperCase()]);
+      return true;
+    }
+  },
+
+  async stopajMuafListesi(): Promise<string[]> {
+    const db = await getDb();
+    const rows = await db.getAllAsync<{ fon_kodu: string }>(`SELECT fon_kodu FROM stopaj_muaf_fonlar`);
+    return rows.map((r) => r.fon_kodu);
+  },
+
   async acikPozisyonlar(): Promise<AcikPozisyon[]> {
     const db = await getDb();
     return db.getAllAsync<AcikPozisyon>(`

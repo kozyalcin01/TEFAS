@@ -69,13 +69,18 @@ async function runMigrations(db: SQLite.SQLiteDatabase) {
   `);
 
   // Migration: stopaj_tutari kolonu (eski kurulumlar için)
-  const kolonlar = await db.getAllAsync<{ name: string }>(
-    `PRAGMA table_info(islemler)`
-  );
-  const varMi = kolonlar.some((k) => k.name === 'stopaj_tutari');
-  if (!varMi) {
+  try {
     await db.execAsync(
       `ALTER TABLE islemler ADD COLUMN stopaj_tutari REAL DEFAULT 0;`
     );
+  } catch {
+    // Kolon zaten varsa hata görmezden gel
   }
+
+  // Stopaj muaf fonlar tablosu
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS stopaj_muaf_fonlar (
+      fon_kodu TEXT PRIMARY KEY
+    );
+  `);
 }
