@@ -1,6 +1,7 @@
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { islemService } from '@/services/islemService';
 import { tefasService } from '@/services/tefasService';
+import { stopajHesapla } from '@/utils/stopaj';
 import type { AcikPozisyon } from '@/types';
 
 export function useAcikPozisyonlar() {
@@ -41,13 +42,15 @@ export function usePortfoyDegeri() {
     const mevcutDegerTL2 = poz.toplam_adet * mevcutFiyat;
     const getiriTL = mevcutDegerTL2 - poz.toplam_maliyet_tl;
     const getiriYuzde = poz.toplam_maliyet_tl > 0 ? getiriTL / poz.toplam_maliyet_tl : 0;
-    return { ...poz, mevcutDegerTL: mevcutDegerTL2, getiriTL, getiriYuzde };
+    const stopajTL = stopajHesapla(poz.toplam_maliyet_tl, mevcutDegerTL2);
+    return { ...poz, mevcutDegerTL: mevcutDegerTL2, getiriTL, getiriYuzde, stopajTL };
   });
 
   const toplamMevcutTL = pozisyonlarHesapli.reduce((s, p) => s + (p.mevcutDegerTL ?? 0), 0);
   const toplamMaliyetTL = pozisyonlar.reduce((s, p) => s + p.toplam_maliyet_tl, 0);
   const toplamGetiriTL = toplamMevcutTL - toplamMaliyetTL;
   const toplamGetiriYuzde = toplamMaliyetTL > 0 ? toplamGetiriTL / toplamMaliyetTL : 0;
+  const toplamStopajTL = pozisyonlarHesapli.reduce((s, p) => s + (p.stopajTL ?? 0), 0);
 
   const gunlukDegisimTL = pozisyonlarHesapli.reduce((s, p) => {
     if (!p.mevcutDegerTL || !gunlukGetiriler[p.fon_kodu]) return s;
@@ -60,6 +63,7 @@ export function usePortfoyDegeri() {
     toplamMaliyetTL,
     toplamGetiriTL,
     toplamGetiriYuzde,
+    toplamStopajTL,
     gunlukDegisimTL,
     isLoading,
     mevcutFiyatlar,

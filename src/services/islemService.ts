@@ -1,4 +1,5 @@
 import { getDb } from './database';
+import { stopajHesapla } from '@/utils/stopaj';
 import type { Islem, IslemTipi, ParaBirimi, AcikPozisyon } from '@/types';
 
 export const islemService = {
@@ -62,6 +63,80 @@ export const islemService = {
           params.kurTL,
         ]
       );
+    });
+
+    return islemId;
+  },
+
+  /**
+   * Satım işlemi kaydeder. FIFO lotları tüketir ve stopaj hesaplayıp saklar.
+   * @param satimFiyati Güncel birim fiyat (TL)
+   */
+  async ekleSatim(params: {
+    fonKodu: string;
+    fonAdi: string;
+    tarih: string;
+    adet: number;
+    birimFiyat: number;
+    paraBirimi: ParaBirimi;
+    kurTL: number;
+    notlar?: string;
+  }): Promise<number> {
+    const db = await getDb();
+
+    // FIFO lotlardan maliyet hesapla
+    const lotlar = await db.getAllAsync<{
+      id: number;
+      kalan_adet: number;
+      birim_maliyet_tl: number;
+    }>(
+      `SELECT id, kalan_adet, birim_maliyet_tl FROM fifo_lotlar
+       WHERE fon_kodu = ? AND kalan_adet > 0.000001
+       ORDER BY tarih ASC`,
+      [params.fonKodu]
+    );
+
+    let kalanSatim = params.adet;
+    let toplamMaliyetTL = 0;
+    const lotGuncellemeleri: Array<{ id: number; yeniAdet: number }> = [];
+
+    for (const lot of lotlar) {
+      if (kalanSatim <= 0) break;
+      const kullanilanAdet = Math.min(kalanSatim, lot.kalan_adet);
+      toplamMaliyetTL += kullanilanAdet * lot.birim_maliyet_tl;
+      lotGuncellemeleri.push({ id: lot.id, yeniAdet: lot.kalan_adet - kullanilanAdet });
+      kalanSatim -= kullanilanAdet;
+    }
+
+    const satimDegerTL = params.adet * params.birimFiyat * params.kurTL;
+    const stopajTutari = stopajHesapla(toplamMaliyetTL, satimDegerTL);
+
+    let islemId!: number;
+    await db.withTransactionAsync(async () => {
+      const result = await db.runAsync(
+        `INSERT INTO islemler
+           (fon_kodu, fon_adi, tip, tarih, adet, birim_fiyat, para_birimi, kur_tl, notlar, stopaj_tutari)
+         VALUES (?, ?, 'SATIM', ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          params.fonKodu,
+          params.fonAdi,
+          params.tarih,
+          params.adet,
+          params.birimFiyat,
+          params.paraBirimi,
+          params.kurTL,
+          params.notlar ?? null,
+          stopajTutari,
+        ]
+      );
+      islemId = result.lastInsertRowId;
+
+      for (const g of lotGuncellemeleri) {
+        await db.runAsync(
+          `UPDATE fifo_lotlar SET kalan_adet = ? WHERE id = ?`,
+          [g.yeniAdet, g.id]
+        );
+      }
     });
 
     return islemId;

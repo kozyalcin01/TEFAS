@@ -67,4 +67,15 @@ async function runMigrations(db: SQLite.SQLiteDatabase) {
     CREATE INDEX IF NOT EXISTS idx_islemler_tarih ON islemler(tarih);
     CREATE INDEX IF NOT EXISTS idx_fifo_fon ON fifo_lotlar(fon_kodu);
   `);
+
+  // Migration: stopaj_tutari kolonu (eski kurulumlar için)
+  const kolonlar = await db.getAllAsync<{ name: string }>(
+    `PRAGMA table_info(islemler)`
+  );
+  const varMi = kolonlar.some((k) => k.name === 'stopaj_tutari');
+  if (!varMi) {
+    await db.execAsync(
+      `ALTER TABLE islemler ADD COLUMN stopaj_tutari REAL DEFAULT 0;`
+    );
+  }
 }

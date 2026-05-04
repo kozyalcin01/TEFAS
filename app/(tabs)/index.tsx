@@ -13,6 +13,7 @@ export default function HomeScreen() {
     toplamMevcutTL,
     toplamGetiriTL,
     toplamGetiriYuzde,
+    toplamStopajTL,
     gunlukDegisimTL,
     isLoading,
   } = usePortfoyDegeri();
@@ -43,6 +44,12 @@ export default function HomeScreen() {
         <Text style={[styles.gunluk, { color: gunlukPositive ? colors.positive : colors.negative }]}>
           Bugün {gunlukPositive ? '+' : ''}{formatTL(gunlukDegisimTL)}
         </Text>
+        {!isLoading && toplamStopajTL > 0 && (
+          <View style={styles.stopajSatir}>
+            <Text style={styles.stopajEtiket}>Bugün satılsa stopaj (%10)</Text>
+            <Text style={styles.stopajTutar}>−{formatTL(toplamStopajTL)}</Text>
+          </View>
+        )}
       </View>
 
       {/* Fon listesi */}
@@ -88,6 +95,12 @@ export default function HomeScreen() {
                   </View>
                   {poz.para_birimi !== 'TRY' && (
                     <Text style={styles.pbEtiket}>{poz.para_birimi} cinsinden fon</Text>
+                  )}
+                  {poz.stopajTL != null && poz.stopajTL > 0 && (
+                    <View style={styles.fonStopajSatir}>
+                      <Text style={styles.fonStopajEtiket}>Stopaj</Text>
+                      <Text style={styles.fonStopajTutar}>−{formatTL(poz.stopajTL)}</Text>
+                    </View>
                   )}
                 </Card>
               );
@@ -136,4 +149,29 @@ const styles = StyleSheet.create({
   bosKutu: { alignItems: 'center', marginTop: 60 },
   bosText: typography.subtitle,
   bosAlt: { ...typography.body, marginTop: spacing.xs },
+  stopajSatir: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    backgroundColor: colors.bg.card,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  stopajEtiket: { ...typography.caption, fontSize: 11, color: colors.text.secondary },
+  stopajTutar: { ...typography.caption, fontSize: 12, fontWeight: '600', color: colors.negative },
+  fonStopajSatir: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 2,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  fonStopajEtiket: { ...typography.caption, fontSize: 11, color: colors.text.tertiary },
+  fonStopajTutar: { ...typography.caption, fontSize: 11, fontWeight: '600', color: colors.negative },
 });
